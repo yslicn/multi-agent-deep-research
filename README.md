@@ -13,7 +13,6 @@ An open-source alternative to Google Gemini Deep Research. Uses a **4-role Agent
 - **Consulting Framework Library**: IBM Five-Forces by default, supports PEST/Porter's Five Forces/SWOT/3C/BCG Matrix
 - **Completely Free**: Uses DuckDuckGo search, no API key required, unlimited usage
 
-
 ## Key Differences from Gemini Deep Research
 
 | Dimension | Gemini Deep Research | This Skill |
