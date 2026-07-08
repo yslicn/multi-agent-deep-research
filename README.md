@@ -16,8 +16,7 @@ with academic citation footnotes.
   corporate websites, with strict blacklist filtering
 - **Anti-Hallucination**: research_data.json persistence + Agent-data reviewer independent review +
   scripts forbidden from hardcoding numbers
-- **Dual Format Output**: .docx (with citation superscripts + bibliography) +
-  .pptx (thesis-statement-driven consulting-grade slides)
+- **Professional Report Output**: .docx (with citation superscripts + bibliography + embedded charts)
 - **Consulting Framework Library**: IBM Five-Forces by default, supports PEST/Porter's Five Forces/
   SWOT/3C/BCG Matrix
 - **Completely Free**: Uses DuckDuckGo search, no API key required, unlimited usage
@@ -42,7 +41,7 @@ See what the skill actually produces — from architecture to final delivery.
 
 ### 4-Role Collaborative Architecture
 
-The system simulates a real consulting team with four specialized agents, 5 decision gates for quality control, and dual-format output (.docx + .pptx).
+The system simulates a real consulting team with four specialized agents, 5 decision gates for quality control, and professional .docx output.
 
 ![Workflow Architecture](previews/preview_workflow_architecture.png)
 
@@ -51,12 +50,6 @@ The system simulates a real consulting team with four specialized agents, 5 deci
 Each report follows a consulting-grade structure: Executive Summary → Multi-framework Analysis → Strategic Recommendations, with 8,000-15,000 words and 30+ citation footnotes.
 
 ![Report Cover](previews/preview_report_cover.png)
-
-### Consulting-Grade PPT Slides
-
-Reports include a complete slide deck with thesis-statement titles, data-driven charts, and actionable recommendations — ready for client delivery.
-
-![PPT Slides](previews/preview_ppt_slides.png)
 
 ### Independent Data Verification
 
@@ -180,8 +173,7 @@ workspace/[project-name]/
   research_data.json      # Persistent data store (single source of truth)
   report.md               # Full report in Markdown
   report.docx             # Formatted Word report with citations
-  report.pptx             # Consulting-grade presentation
-  slides_spec.json        # Slide specifications
+  slides_spec.json        # Slide specifications (for future PPT output)
   review_report.json      # Data reviewer verification report
 ```
 
@@ -192,7 +184,6 @@ workspace/[project-name]/
 - Data credibility is graded: high / medium / low
 - Report length: 8,000-15,000 words (standard), >= 12,000 (deep)
 - Reports must include charts (tables, bar charts, line charts, or bubble charts)
-- PPT titles must be complete thesis statements, not noun phrases
 - Agent-data reviewer must independently verify all data (cannot reuse Agent-researcher's search results)
 
 ## Source Blacklist

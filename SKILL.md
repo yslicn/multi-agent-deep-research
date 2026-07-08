@@ -5,7 +5,7 @@ description: >
   采用 Agent-manager / Agent-researcher / Agent-report consultant / Agent-data reviewer
   四角色协作架构，模拟咨询团队工作方式。适用于行业研究、市场分析、竞品调研等
   需要系统性资料收集和结构化输出的场景。支持 IBM 五看、PEST、波特五力等咨询框架。
-  默认输出 .docx + .pptx 双格式，含引用脚标注和参考文献清单。
+  默认输出 .docx 格式，含引用脚标注和参考文献清单。
 ---
 
 # Multi-Agent Deep Research Skill
@@ -58,7 +58,7 @@ Agent-manager (规划 + 品控 + 交付)
 | 数据验证 | 依赖搜索排名算法 | **独立 Agent 专门做数据复核** |
 | 框架定制 | 通用模板 | 支持五看/3C/波特五力/PEST/SWOT 等咨询框架 |
 | 引用质量 | 自动标注 | 独立编号 + 交叉验证 + 黑名单过滤 |
-| 输出格式 | 纯文本/HTML | **默认 .docx + .pptx 双格式** |
+| 输出格式 | 纯文本/HTML | **默认 .docx 格式** |
 | 防数据编造 | 依赖模型能力 | **research_data.json 持久化 + 独立校验 + 脚本禁止硬编码** |
 | 免费额度 | 每月 5-6 次 | 无限制 (使用免费搜索后端) |
 
@@ -213,7 +213,7 @@ Step 09b: User 接收报告并评估是否满足需求
 - **动作**:
   1. 确认报告文件已保存到指定路径
   2. 以**显式消息**告知用户: 报告已生成、文件路径、文件大小、报告概要（章节数/字数/图表数/引用数）
-  3. 以使终端输出显式消息的方式告知用户（如平台支持桌面通知/PushNotification，则同步发送）
+  3. 如有 `PushNotification` 工具可用，发送桌面推送通知
   4. 邀请用户打开文件检查，进入 09b 评估
 - **这是 push（推送）而非 pull（拉取）——系统主动交付，不等用户追问**
 
@@ -516,7 +516,7 @@ for r in search('<search_query>', 5):
 
 报告需输出 **双格式**:
 1. **Markdown 格式** (完整报告，用于 review)
-2. **.docx 格式** (使用文件夹内的 `deep-research-template.docx`(英文版) 或 `deep-research-template-cn.docx`(中文版) 作为格式参考)
+2. **.docx 格式** (使用文件夹内的 `deep research template.docx` 模板)
    - 含引用上标 + 参考文献清单
    - 含图表 (表格、柱状图、折线图等)
    - 格式美观、专业排版
@@ -593,7 +593,7 @@ Agent-data reviewer **必须独立进行数据复核**，不能直接从 Agent-r
 
 ## 6. 数据持久化机制 (防编造)
 
-搜索过程中收集的所有有效数据必须写入 `research_data.json`。这个文件是报告和 PPT 的**唯一数据源**。
+搜索过程中收集的所有有效数据必须写入 `research_data.json`。这个文件是报告的**唯一数据源**。
 
 ### 6.1 JSON 格式
 
@@ -670,142 +670,6 @@ def get_citations(filepath="research_data.json"):
     cited = [item for item in data if item.get("citation_num")]
     return sorted(cited, key=lambda x: x["citation_num"])
 ```
-
----
-
-## 7. PPT 生成规范
-
-### 7.1 从报告到 PPT: 观点提炼
-
-报告完成后不直接翻译为 PPT。必须先执行**观点提炼**:
-
-1. 将报告章节映射为幻灯片规格
-2. 每页只讲**一个观点**
-3. 标题必须是**完整观点句**，不能是名词短语
-4. 每页不超过 3 个支撑数据，多的放附录
-5. 每个数据从 `research_data.json` 的 ID 引用
-
-#### 幻灯片规格表 (slides_spec) 示例
-
-```
-第 3 页:
-  观点: "2025 年预制菜市场增速放缓，行业进入存量竞争阶段"
-  页面类型: 数据卡片组
-  支撑数据 ID: [D001, D003, D005]
-  数据来自: research_data.json
-```
-
-#### 页面类型参考
-
-| 类型 | 适用场景 |
-|------|---------|
-| 封面 | 报告标题 + 副标题 |
-| 章节页 | 章节分隔过渡 |
-| 观点页 (核心) | 一个观点句 + 2-3 个支撑数据 + 逻辑箭头 |
-| 数据卡片页 | 并排数据卡，每卡一个关键数字 + 标签 |
-| 两栏对比 | 左/右分栏对比两个维度 |
-| 时间轴 | 关键时间节点 + 事件 |
-| 图表页 | 嵌入表格/柱状图/折线图/气泡图 |
-
-### 7.2 PPT 生成步骤
-
-1. 用户 review 并确认报告内容
-2. Agent-report consultant 执行观点提炼，输出 slides_spec.json
-3. 用户确认 slides_spec 后，执行生成脚本
-4. 生成脚本从 research_data.json 获取数据，**不硬编码任何数字**
-5. 输出 .pptx 文件
-
-### 7.3 AUTO_SHAPE 构建规范
-
-生成的 .pptx 文件必须使用 AUTO_SHAPE 精确构建，**不依赖模板占位符**。
-
-#### 布局常量
-
-```
-幻灯片尺寸: 12192000 x 6858000 Emu (16:9)
-左边距: Inches(0.5)
-右边距: Inches(0.5)
-内容区起始高度: Inches(1.1)
-内容区高度: Inches(5.7)
-标题栏高度: Inches(1.0)
-```
-
-#### 辅助函数模板
-
-```python
-from pptx.util import Inches, Pt as PptPt, Emu
-from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN
-from pptx.enum.shapes import MSO_SHAPE
-
-# Layout constants
-ML = Inches(0.5)
-MR = Inches(0.5)
-SLIDE_W = 12192000
-SLIDE_H = 6858000
-CONTENT_Y = Inches(1.1)
-CONTENT_H = Inches(5.7)
-CW = SLIDE_W - int(ML) - int(MR)
-TITLE_BAR_H = Inches(1.0)
-
-# Colors
-C_DARK  = RGBColor(0x01, 0x21, 0x69)
-C_WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-C_BLACK = RGBColor(0x33, 0x33, 0x33)
-C_GRAY  = RGBColor(0x53, 0x56, 0x5A)
-C_LGRAY = RGBColor(0xD0, 0xD0, 0xCE)
-C_ACCENT = RGBColor(0x00, 0xA3, 0xE0)
-
-def add_title_bar(slide, text):
-    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, SLIDE_W, TITLE_BAR_H)
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = C_DARK
-    shape.line.fill.background()
-    txBox = slide.shapes.add_textbox(ML, Inches(0.2), CW, Inches(0.6))
-    tf = txBox.text_frame; tf.word_wrap = True
-    p = tf.paragraphs[0]; p.text = text
-    p.font.size = PptPt(18); p.font.bold = True
-    p.font.color.rgb = C_WHITE; p.font.name = 'Microsoft YaHei'
-
-def add_textbox(slide, left, top, width, height, text, size=11,
-                bold=False, color=C_BLACK, align=PP_ALIGN.LEFT):
-    txBox = slide.shapes.add_textbox(Emu(left), Emu(top), Emu(width), Emu(height))
-    tf = txBox.text_frame; tf.word_wrap = True
-    p = tf.paragraphs[0]; p.text = text
-    p.font.size = PptPt(size); p.font.bold = bold
-    p.font.color.rgb = color; p.font.name = 'Microsoft YaHei'
-    p.alignment = align
-    return txBox
-
-def new_slide(prs):
-    layout = prs.slide_layouts[6]  # blank layout
-    return prs.slides.add_slide(layout)
-
-def add_data_card(slide, x, y, w, h, label, value, note=''):
-    shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h)
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = RGBColor(0xF2, 0xF2, 0xF2)
-    shape.line.fill.background()
-    add_textbox(slide, x + Inches(0.15), y + Inches(0.1), w - Inches(0.3),
-                Inches(0.5), value, size=24, bold=True, color=C_DARK,
-                align=PP_ALIGN.CENTER)
-    add_textbox(slide, x + Inches(0.15), y + Inches(0.55), w - Inches(0.3),
-                Inches(0.3), label, size=10, color=C_GRAY,
-                align=PP_ALIGN.CENTER)
-```
-
-### 7.4 数据完整性校验
-
-脚本执行前必须做:
-
-```
-检查清单:
-[ ] research_data.json 是否已读取
-[ ] 所有 slides_spec 引用的数据 ID 在 JSON 中存在
-[ ] 脚本中没有任何未注释的纯数字 (除了布局常量)
-[ ] 每个数据卡片/文本框的值来源于 get_data() 调用
-```
-
 ---
 
 ## 8. 质量标准
@@ -820,8 +684,7 @@ def add_data_card(slide, x, y, w, h, label, value, note=''):
 6. **生成脚本中不得硬编码任何数字**。所有数据值必须以 `get_data("D001")` 形式从 JSON 获取
 7. 报告字数: 深度研究 >= 12,000 字; 标准研究 8,000-15,000 字; 快速研究 >= 3,000 字
 8. 包含执行摘要，让读者 3 分钟内把握核心结论
-9. **默认输出 .docx + .pptx 双格式**，含引用脚标和参考文献清单
-10. PPT 每页标题必须是观点句 (完整句子)，不是名词短语
+9. **默认输出 .docx 格式**，含引用脚标和参考文献清单
 11. 报告必须包含图表 (表格/柱状图/折线图/气泡图至少一种)
 12. Agent-data reviewer 必须独立校验所有数据，不能复用 Agent-researcher 的搜索结果
 
@@ -927,11 +790,10 @@ workspace/
     research_data.json      # 数据持久化文件 (唯一数据源)
     report.md               # 完整报告 Markdown
     report.docx             # 格式化 Word 报告
-    report.pptx             # PPT 演示文稿
-    slides_spec.json        # 幻灯片规格
+    report.docx             # 格式化 Word 报告
+    slides_spec.json        # 幻灯片规格 (为后续 PPT 输出预留)
     review_report.json      # Agent-data reviewer 校验报告
     generate_docx.py        # .docx 生成脚本
-    generate_pptx.py        # .pptx 生成脚本
 ```
 
 ---
