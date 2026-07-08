@@ -24,17 +24,23 @@ with academic citation footnotes.
 
 ## Template Preview
 
-### Report Structure & Features
+Reports are generated with full formatting -- bordered tables, matplotlib charts (7 per report), citation
+superscripts, and a complete reference list.
 
-![Report structure](previews/preview_structure.png)
+### English Template (`deep-research-template.docx`)
 
-### Embedded Charts (7 per report)
+| Cover Page | Charts & Diagrams | Tables & Timelines |
+|:---:|:---:|:---:|
+| ![EN Cover](previews/template_en_cover.png) | ![EN Charts](previews/template_en_charts.png) | ![EN Tables](previews/template_en_tables.png) |
 
-![Charts](previews/preview_charts.png)
+### Chinese Template (`deep-research-template-cn.docx`)
 
-### Bordered Tables & Action Timelines
+| Cover Page | Charts & Diagrams | Tables & Timelines |
+|:---:|:---:|:---:|
+| ![CN Cover](previews/template_cn_cover.png) | ![CN Charts](previews/template_cn_charts.png) | ![CN Tables](previews/template_cn_tables.png) |
 
-![Tables](previews/preview_tables.png)
+The templates are included in the repository and automatically used as the output format
+when generating reports.
 
 ## Key Differences from Gemini Deep Research
 
