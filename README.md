@@ -1,39 +1,17 @@
 # Multi-Agent Deep Research
 
-An open-source alternative to Google Gemini Deep Research. Uses a **4-role Agent collaborative architecture**
-that simulates how a real consulting team works, automatically generating in-depth research reports
-with academic citation footnotes.
+An open-source alternative to Google Gemini Deep Research. Uses a **4-role Agent collaborative architecture** that simulates how a real consulting team works, automatically generating in-depth research reports with academic citation footnotes.
 
 ## Highlights
 
-- **4-Role Architecture**: Agent-manager (planning + QA + delivery) + Agent-researcher (search + data) +
-  Agent-report consultant (writing + visualization self-check) + Agent-data reviewer (independent data verification)
-- **5 Decision Gates**: User and Agent-manager can send work back upstream at key checkpoints
-  to ensure quality. Plus mandatory visualization compliance check before output
-- **Visualization Gate**: Prevents text-only reports -- forces trend data into charts, hierarchies into
-  diagrams, timelines into structured tables. Pandoc mechanical conversion explicitly forbidden
-- **Source Priority Pyramid**: Annual reports/broker research > government data > authoritative media >
-  corporate websites, with strict blacklist filtering
-- **Anti-Hallucination**: research_data.json persistence + Agent-data reviewer independent review +
-  scripts forbidden from hardcoding numbers
-- **Professional Report Output**: .docx (with citation superscripts + bibliography + embedded charts)
-- **Consulting Framework Library**: IBM Five-Forces by default, supports PEST/Porter's Five Forces/
-  SWOT/3C/BCG Matrix
+- **4-Role Architecture**: Agent-manager (planning + QA + delivery) + Agent-researcher (search + data) + Agent-report consultant (writing + visualization self-check) + Agent-data reviewer (independent data verification)
+- **5 Decision Gates**: User and Agent-manager can send work back upstream at key checkpoints to ensure quality. Plus mandatory visualization compliance check before output
+- **Visualization Gate**: Prevents text-only reports — forces trend data into charts, hierarchies into diagrams, timelines into structured tables. Pandoc mechanical conversion explicitly forbidden
+- **Source Priority Pyramid**: Annual reports/broker research > government data > authoritative media > corporate websites, with strict blacklist filtering
+- **Anti-Hallucination**: research_data.json persistence + Agent-data reviewer independent review + scripts forbidden from hardcoding numbers
+- **Dual Format Output**: .docx (with citation superscripts + bibliography) + .pptx (thesis-statement-driven consulting-grade slides)
+- **Consulting Framework Library**: IBM Five-Forces by default, supports PEST/Porter's Five Forces/SWOT/3C/BCG Matrix
 - **Completely Free**: Uses DuckDuckGo search, no API key required, unlimited usage
-
-## Template Preview
-
-### Report Structure & Features
-
-![Report structure](previews/preview_structure.png)
-
-### Embedded Charts (7 per report)
-
-![Charts](previews/preview_charts.png)
-
-### Bordered Tables & Action Timelines
-
-![Tables](previews/preview_tables.png)
 
 ## Key Differences from Gemini Deep Research
 
@@ -47,16 +25,17 @@ with academic citation footnotes.
 
 ## Quick Start
 
-### Step 1: Clone the Repository
+### Install the Skill
 
 ```bash
-git clone https://github.com/yslicn/multi-agent-deepresearch.git
-cd multi-agent-deepresearch
+git clone https://github.com/yslicn/multi-agent-deep-research.git
+cd multi-agent-deep-research
+cp -r . ~/.claude/skills/deep-research
 ```
 
-### Step 2: Load Into Your AI Agent
+### Platform Compatibility
 
-This is a **prompt-based skill** -- `SKILL.md` contains the complete 10-step consulting workflow. Any AI agent can follow it.
+This is a **prompt-based skill** — `SKILL.md` contains the complete consulting workflow. Any AI agent can follow it.
 
 | Platform | How to Load |
 |----------|-------------|
@@ -66,58 +45,44 @@ This is a **prompt-based skill** -- `SKILL.md` contains the complete 10-step con
 | **Hermes** | Import `SKILL.md` as a skill definition |
 | **Any Agent** | Paste `SKILL.md` content into system prompt or custom instructions |
 
-### Step 3: Start Researching
+### Start Researching
 
 ```
-/ deep-research 帮我研究一下中国预制菜市场
+Help me research the China pre-made meal market using the Five-Forces framework
 ```
-
-Or in natural language:
-
-```
-Use the deep-research skill to analyze the global AI chip market with Porter's Five Forces
-```
-
-The agent follows a 10-step consulting workflow: planning -> deep search -> report writing with charts -> data verification -> quality review -> delivery.
-research planning -> deep search -> report writing with charts -> data verification -> quality review -> delivery.
 
 ## How It Works
 
-### Architecture
+The system employs 4 specialized AI agents that work together in a structured pipeline — each agent has a distinct role, and data flows sequentially from one to the next with built-in feedback loops for quality assurance.
 
-```
-User
-  |
-  v
-Agent-manager (planning + QA + delivery)
-  |
-  +---> Agent-researcher (search + data collection)
-  |       |
-  |       v
-  +---> Agent-report consultant (report writing + visualization self-check)
-  |       |
-  |       v
-  +---> Agent-data reviewer (data verification)
-          |
-          v
-      Agent-manager (final review + push notification)
-          |
-          v
-        User (acceptance)
-```
+![Architecture](images/architecture.png)
 
-### 10-Step Workflow with 4 Decision Gates + Visualization Gate
+### 10-Step Workflow with 5 Decision Gates
 
 1. User submits research request
-2. Agent-manager analyzes and proposes research approach --> **Gate 1**: User approves?
+2. Agent-manager analyzes and proposes research approach → **Gate 1**: User approves?
 3. Agent-manager breaks down tasks and assigns to agents
 4. Agent-researcher executes web search, collects data
 5. Agent-report consultant integrates data, writes draft report
-6. **Visualization self-check** (mandatory): trend data -> charts, hierarchies -> diagrams, timelines -> structured tables --> **Gate 2**: All checks pass?
-7. Agent-data reviewer independently verifies all cited data --> **Gate 3**: Data trustworthy?
-8. Agent-manager evaluates report quality (incl. visualization compliance review) --> **Gate 4**: Quality meets standards?
-9. Agent-manager pushes report + explicitly notifies user (push, not pull)
-10. User receives report and evaluates --> **Gate 5**: Requirements satisfied? Done
+6. **Visualization self-check**: trend data → charts, hierarchies → diagrams, timelines → tables → **Gate 2**
+7. Agent-data reviewer independently verifies all cited data → **Gate 3**: Data trustworthy?
+8. Agent-manager evaluates report quality (incl. visualization compliance) → **Gate 4**: Quality meets standards?
+9. Agent-manager delivers report with push notification
+10. User receives report → **Gate 5**: Requirements satisfied?
+
+## Report Sample
+
+### .docx Research Report
+
+Automatically generated with academic-grade citation superscripts, structured sections, data tables, and charts.
+
+![Report structure with sections](images/sample_docx_page1.png)
+![Data tables and analysis](images/sample_docx_chart.png)
+![Bibliography and citations](images/sample_docx_bibliography.png)
+
+### .pptx Consulting Presentation
+
+Each slide title is a complete thesis statement (not a noun phrase), with data cards and source annotations as required by consulting standards. Note: the pptx output quality is currently limited and still under active development.
 
 ## Research Frameworks
 
@@ -130,7 +95,7 @@ Agent-manager (planning + QA + delivery)
 | 3C Model | Company, Customer, Competitor | Competitive positioning |
 | BCG Matrix | Market growth vs Relative market share | Product portfolio analysis |
 
-## Output
+## Output Structure
 
 Each research project produces:
 
@@ -139,7 +104,6 @@ workspace/[project-name]/
   research_data.json      # Persistent data store (single source of truth)
   report.md               # Full report in Markdown
   report.docx             # Formatted Word report with citations
-  slides_spec.json        # Slide specifications (for future PPT output)
   review_report.json      # Data reviewer verification report
 ```
 
@@ -148,8 +112,8 @@ workspace/[project-name]/
 - Every key data point must have a source citation footnote [n]
 - Each data point must be verified by at least 2 independent sources
 - Data credibility is graded: high / medium / low
-- Report length: 8,000-15,000 words (standard), >= 12,000 (deep)
-- Reports must include charts (tables, bar charts, line charts, or bubble charts)
+- Report length: 8,000–15,000 words (standard), ≥12,000 (deep)
+- Reports must include charts (tables, bar charts, line charts)
 - Agent-data reviewer must independently verify all data (cannot reuse Agent-researcher's search results)
 
 ## Source Blacklist
@@ -169,12 +133,8 @@ The following sources are **strictly prohibited**:
 - DuckDuckGo search breadth is lower than Google; supplement with other channels when needed
 - Agent-data reviewer's independent verification is also limited to public sources
 - Model-calculated estimates should be treated as reference, not primary data
+- The quality of pptx format is poor by now, still working on it
 
 ## License
 
 MIT
-
----
-
-*Skill Version: 3.1 (Multi-Agent Architecture + Visualization Gate + Push Delivery)*
-*Last Updated: 2026-07-08*
