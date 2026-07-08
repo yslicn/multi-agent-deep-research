@@ -28,3 +28,6 @@ reports/
 # Personal planning documents (not for publication)
 *instruction*.pptx
 charts_cn/
+
+# Preview images (committed intentionally for README)
+!previews/

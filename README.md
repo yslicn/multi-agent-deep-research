@@ -22,6 +22,20 @@ with academic citation footnotes.
   SWOT/3C/BCG Matrix
 - **Completely Free**: Uses DuckDuckGo search, no API key required, unlimited usage
 
+## Template Preview
+
+### Report Structure & Features
+
+![Report structure](previews/preview_structure.png)
+
+### Embedded Charts (7 per report)
+
+![Charts](previews/preview_charts.png)
+
+### Bordered Tables & Action Timelines
+
+![Tables](previews/preview_tables.png)
+
 ## Key Differences from Gemini Deep Research
 
 | Dimension | Gemini Deep Research | This Skill |
