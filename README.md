@@ -35,40 +35,6 @@ with academic citation footnotes.
 
 ![Tables](previews/preview_tables.png)
 
-## Sample Output
-
-See what the skill actually produces — from architecture to final delivery.
-
-### 4-Role Collaborative Architecture
-
-The system simulates a real consulting team with four specialized agents, 5 decision gates for quality control, and professional .docx output.
-
-![Workflow Architecture](previews/preview_workflow_architecture.png)
-
-### Report Cover & Core Structure
-
-Each report follows a consulting-grade structure: Executive Summary → Multi-framework Analysis → Strategic Recommendations, with 8,000-15,000 words and 30+ citation footnotes.
-
-![Report Cover](previews/preview_report_cover.png)
-
-### Independent Data Verification
-
-Agent-data reviewer verifies every cited data point independently. Flagged items are returned for re-search before final delivery.
-
-![Data Verification](previews/preview_data_verification.png)
-
-### Chinese Template (Default: IBM Five-Forces)
-
-The Chinese template structures reports using the IBM Five-Forces framework (Macro → Industry → Customer → Competitor → Self), ideal for comprehensive market research and strategic analysis.
-
-![Chinese Template](previews/preview_chinese_template.png)
-
-### English Template (Standard Consulting Format)
-
-The English template follows industry-standard consulting report structure, with support for Porter's Five Forces, SWOT, 3C, BCG Matrix, and other frameworks.
-
-![English Template](previews/preview_english_template.png)
-
 ## Key Differences from Gemini Deep Research
 
 | Dimension | Gemini Deep Research | This Skill |
