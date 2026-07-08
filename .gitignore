@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Temp files
+~$*
+*.tmp
+*.temp
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Reports workspace (user-generated)
+workspace/
+reports/
+
+# Personal planning documents (not for publication)
+*instruction*.pptx
+charts_cn/

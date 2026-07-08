@@ -1,0 +1,965 @@
+---
+name: deep-research
+description: >
+  对标 Gemini Deep Research 的多 Agent 协作式深度研究报告自动生成工具。
+  采用 Agent-manager / Agent-researcher / Agent-report consultant / Agent-data reviewer
+  四角色协作架构，模拟咨询团队工作方式。适用于行业研究、市场分析、竞品调研等
+  需要系统性资料收集和结构化输出的场景。支持 IBM 五看、PEST、波特五力等咨询框架。
+  默认输出 .docx + .pptx 双格式，含引用脚标注和参考文献清单。
+---
+
+# Multi-Agent Deep Research Skill
+
+## 1. 概述
+
+本 skill 模拟**真实咨询团队**的工作方式，通过 **4 个专业化 Agent 角色**协作完成深度研究报告。
+与 Gemini Deep Research 的单次提交模式不同，本 skill 在每个关键节点设置**决策门 (xor gate)**，
+允许用户和 Agent-manager 在质量不达标时将工作退回上游修正。
+
+### 1.1 核心架构
+
+```
+User
+  |
+  v
+Agent-manager (规划 + 品控 + 交付)
+  |
+  +---> Agent-researcher (搜索 + 数据收集)
+  |       |
+  |       v
+  +---> Agent-report consultant (报告撰写 + 可视化自查)
+  |       |
+  |       v
+  +---> Agent-data reviewer (数据校验)
+          |
+          v
+      Agent-manager (终审 + 推送通知)
+          |
+          v
+        User (验收)
+```
+
+### 1.2 四角色职责
+
+| 角色 | 核心职责 | 关键产出 |
+|------|---------|---------|
+| **Agent-manager** | 理解需求、选择框架、拆解任务、分配工作、品控把关、终审报告 | 研究规划书、任务分配方案、质量评估意见 |
+| **Agent-researcher** | 执行网络检索、收集数据、信源验证、数据去重、持久化存储 | research_data.json |
+| **Agent-report consultant** | 整合数据、撰写报告、制作图表(表格/柱状图/折线图/气泡图)、提炼洞察 | 初版报告 (Markdown + .docx) |
+| **Agent-data reviewer** | 独立复核所有引用数据、核查黑名单来源、验证计算逻辑、标记存疑数据 | 数据校验报告 |
+
+### 1.3 与 Gemini Deep Research 对比
+
+| 维度 | Gemini Deep Research | 本 Skill |
+|------|---------------------|----------|
+| 运行模式 | 一次性提交，后台自主运行 | 多 Agent 协作，关键节点人工介入 |
+| 搜索源 | Google Search 内核 | Claude/OpenCode 内置搜索 + DuckDuckGo + Tavily |
+| 报告迭代 | 一次性输出 | 支持多轮退回修正，渐进完善 |
+| 数据验证 | 依赖搜索排名算法 | **独立 Agent 专门做数据复核** |
+| 框架定制 | 通用模板 | 支持五看/3C/波特五力/PEST/SWOT 等咨询框架 |
+| 引用质量 | 自动标注 | 独立编号 + 交叉验证 + 黑名单过滤 |
+| 输出格式 | 纯文本/HTML | **默认 .docx + .pptx 双格式** |
+| 防数据编造 | 依赖模型能力 | **research_data.json 持久化 + 独立校验 + 脚本禁止硬编码** |
+| 免费额度 | 每月 5-6 次 | 无限制 (使用免费搜索后端) |
+
+---
+
+## 2. 完整工作流 (10 步 + 4 个决策门)
+
+### 2.1 流程图
+
+```
+[开始]
+  |
+  v
+Step 01: User 提交研究请求
+  |
+  v
+Step 02: Agent-manager 分析请求，给出报告输出建议
+  |
+  v
+Step 03: User 评估建议是否满足需求
+  |          |
+  | 不满足   | 满足
+  +--> 回到 Step 02
+  |
+  v
+Step 04: Agent-manager 分解任务并分配给各 Agent
+  |
+  +----> Agent-researcher (Step 05)
+  +----> Agent-report consultant (Step 06, 等待 Step 05 完成)
+  +----> Agent-data reviewer (Step 07, 等待 Step 06 完成)
+  |
+  v
+Step 05: Agent-researcher 执行网络检索、收集数据
+  |
+  v
+Step 06: Agent-report consultant 整合数据并输出初版报告
+  |
+  v
+Step 06a: 可视化合规自查（强制，不通过则退回修改）
+  |
+  v
+Step 07: Agent-data reviewer 校验报告中引用数据的真实性
+  |          |
+  | 存在不可信数据 | 数据可信
+  +--> 回到 Step 05 (补充搜索)
+  |
+  v
+Step 08: Agent-manager 评估报告质量（含可视化合规复审）
+  |          |
+  | 不符合要求 | 符合要求
+  +--> 回到 Step 04 (重新分配)
+  |
+  v
+Step 09a: Agent-manager 推送报告 + 显式通知用户
+  |
+  v
+Step 09b: User 接收报告并评估是否满足需求
+  |          |
+  | 不符合要求 | 符合要求
+  +--> 回到 Step 02 (调整方向)
+  |
+  v
+[结束]
+```
+
+### 2.2 各步骤详细说明
+
+#### Step 01: 提交请求
+- **执行者**: User
+- **动作**: 提出 deep research 需求，说明研究主题、目的、目标受众
+- **示例**: "我需要研究一下中国预制菜市场，目的是给管理层做战略汇报"
+
+#### Step 02: 分析请求给出报告输出建议
+- **执行者**: Agent-manager
+- **动作**:
+  1. 对研究需求进行快速了解
+  2. **默认使用 IBM 五看方法**拆解工作任务 (其他可选: PEST、波特五力、SWOT、3C、波士顿矩阵)
+  3. 描述每一步大致要做的事情和研究范围
+  4. 向 User 确认研究框架和方向
+- **产出**: 研究规划书 (含框架选择、子课题拆解、预期产出)
+
+#### Step 03: 评估报告输出建议是否满足需求
+- **执行者**: User
+- **动作**: 评估 Agent-manager 给出的报告建议
+- **决策门 #1**: 不满足 -> 回到 Step 02 调整；满足 -> 进入 Step 04
+
+#### Step 04: 分析需求和报告输出建议，并分配任务
+- **执行者**: Agent-manager
+- **关键原则**:
+  - **网络检索独立一个 Agent** -- Agent-researcher 专注搜索
+  - **数据校验独立一个 Agent** -- Agent-data reviewer 独立复核，不与搜索复用
+  - **报告撰写独立一个 Agent** -- Agent-report consultant 专注写作
+  - **如果网络检索工作量很大，激活多个 Agent-researcher 并行搜索**
+- **产出**: 任务分配方案 + 各 Agent 的工作指令
+
+#### Step 05: 执行网络检索、收集数据
+- **执行者**: Agent-researcher (可并行多个)
+- **详细要求**: 见 [第 3 章: Agent-researcher 工作规范](#3-agent-researcher-工作规范)
+- **产出**: research_data.json
+
+#### Step 06: 整合数据并输出初版报告
+- **执行者**: Agent-report consultant
+- **详细要求**: 见 [第 4 章: Agent-report consultant 工作规范](#4-agent-report-consultant-工作规范)
+- **产出**: 初版报告 (Markdown) + .docx 文件
+
+##### Step 06a: 可视化合规自查（强制，输出前必须完成）
+- **执行者**: Agent-report consultant
+- **在保存 .docx 之前，必须逐项扫描报告内容，回答以下检查清单**:
+
+```
+可视化合规自查清单（全部通过才能输出）:
+
+[ ] 检查: 报告中是否存在"数值随时间变化的趋势描述"？
+     若有 -> 必须用折线图或柱状图呈现，不得仅用文字段落
+
+[ ] 检查: 报告中是否存在"多层级的结构或流程关系"？
+     若有（如价值链、组织架构、技术栈层级）-> 必须用层次图呈现
+
+[ ] 检查: 报告中是否存在"分阶段/分时间节点的行动路径"？
+     若有 -> 必须用结构化时间轴表格呈现，不得仅用段落
+
+[ ] 检查: 报告中是否存在"多维度对比数据"？
+     若有 -> 必须用带边框的格式化表格呈现
+
+[ ] 检查: 所有表格是否都有可见边框线？
+     若否 -> 必须添加完整边框（表头深色底+白字，正文斑马纹）
+
+[ ] 检查: 是否使用 pandoc 等机械格式转换工具直接生成 .docx？
+     若是 -> **禁止**。必须用 python-docx 等库精确控制格式和图表嵌入
+```
+
+- **不通过则退回修改，通过后才能进入 Step 07**
+
+#### Step 07: 校验报告中引用数据的真实性
+- **执行者**: Agent-data reviewer
+- **详细要求**: 见 [第 5 章: Agent-data reviewer 工作规范](#5-agent-data-reviewer-工作规范)
+- **决策门 #2**: 存在不可信数据 -> 回到 Step 05 补充搜索；数据可信 -> 进入 Step 08
+
+#### Step 08: 评估报告质量
+- **执行者**: Agent-manager
+- **品控维度**:
+  1. **版面检查**: 格式是否美观、是否有明显错误
+  2. **观点复核**: 以 20 年经验管理咨询顾问的视角，挑战报告中的观点，找不合理的点
+  3. **一致性检查**: 报告是否存在前后矛盾
+  4. **逻辑检查**: 逻辑线是否清晰、报告最终是否有明确结论
+  5. **完整性检查**: 是否所有应覆盖的子课题都有深入分析
+  6. **可视化合规复审**: 复核 Step 06a 的自查结果是否真实——打开 docx 逐页浏览，确认趋势数据有图表、层级结构有示意图、时间线用表格、所有表格有边框
+- **决策门 #3**: 不符合要求 -> 回到 Step 04 重新分配任务；符合要求 -> 进入 Step 09
+
+#### Step 09a: 系统推送报告并显式通知用户
+- **执行者**: Agent-manager
+- **动作**:
+  1. 确认报告文件已保存到指定路径
+  2. 以**显式消息**告知用户: 报告已生成、文件路径、文件大小、报告概要（章节数/字数/图表数/引用数）
+  3. 以使终端输出显式消息的方式告知用户（如平台支持桌面通知/PushNotification，则同步发送）
+  4. 邀请用户打开文件检查，进入 09b 评估
+- **这是 push（推送）而非 pull（拉取）——系统主动交付，不等用户追问**
+
+#### Step 09b: 用户接收并评估是否满足需求
+- **执行者**: User
+- **动作**:
+  1. 打开报告文件查看内容
+  2. 评估报告是否覆盖所有需求、质量是否达标
+- **决策门 #4**: 不符合要求 -> 回到 Step 02 调整方向；符合要求 -> 工作流结束
+
+
+---
+
+## 3. Agent-researcher 工作规范
+
+### 3.1 搜索工具优先级
+
+1. **优先使用 Claude/OpenCode/Hermes 自带的 WebSearch 工具** -- 最便捷
+2. **DuckDuckGo HTML 搜索** -- 免费、无需 API Key
+3. **Tavily Search API** -- 作为备用方案
+
+如果自带工具遇到障碍，提醒 User 配置 DuckDuckGo 等相关搜索 Skill。
+
+### 3.2 DuckDuckGo 搜索函数
+
+```python
+no_proxy="*" python3 -c "
+import urllib.request, urllib.parse, ssl
+from bs4 import BeautifulSoup
+
+def search(query, max_results=5):
+    url = f'https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}'
+    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'}
+    ctx = ssl.create_default_context()
+    req = urllib.request.Request(url, headers=headers)
+    resp = urllib.request.urlopen(req, context=ctx, timeout=15)
+    soup = BeautifulSoup(resp.read(), 'lxml')
+
+    results = []
+    for result in soup.select('.result'):
+        title_el = result.select_one('.result__title a')
+        body_el = result.select_one('.result__snippet')
+        if title_el:
+            title = title_el.get_text(strip=True)
+            href = title_el.get('href', '')
+            body = body_el.get_text(strip=True) if body_el else ''
+            results.append({'title': title, 'url': href, 'body': body})
+
+    return results[:max_results]
+
+for r in search('<search_query>', 5):
+    print(f'Title: {r["title"]}')
+    print(f'URL: {r["url"]}')
+    print(f'Body: {r["body"]}')
+    print('---')
+"
+```
+
+### 3.3 信源优先级金字塔
+
+#### 第一优先 (最高可信度)
+
+- **上市公司年报/半年报/季报** (交易所披露): 上交所/深交所/港交所披露易、公司官网投资者关系页面
+  - 关键词: `[公司名] 202X 年年报` / `[公司名] 半年度报告`
+- **券商研究报告**: 中金、中信、华泰、国泰君安、申万宏源等头部券商
+  - 关键词: `[行业/公司] 深度研究 [券商名]` / `[行业] 行业专题报告`
+- **知名市场调研机构报告**:
+  - 国内: 艾瑞咨询、艾媒咨询、智研咨询、前瞻产业研究院
+  - 国际: Euromonitor、Frost & Sullivan、Fortune Business Insights、Mordor Intelligence、Grand View Research
+  - 关键词: `[行业] 市场规模 [机构名]` / `[行业] 行业分析报告`
+
+#### 第二优先 (高可信度)
+
+- **政府/官方数据**: 国家统计局、海关总署、商务部、行业协会
+  - 关键词: `[行业] 行业数据 统计局` / `[行业] 行业协会 报告`
+- **权威财经媒体分析报道**: 36氪、界面新闻、虎嗅、财经网、证券时报
+  - 关键要有具体数据引用和来源标注，避免纯评论性质的自媒体文章
+
+#### 第三优先 (参考性来源，需注明"待验证")
+
+- 创业公司/企业官网产品信息 (注意宣传夸大成分)
+- 权威财经媒体的非深度报道 (新闻简讯，仅有参考价值)
+- MBA智库 (仅用于行业定义和基础概念，不用于数据引用)
+
+#### 辅助参考 (仅用于开拓思路，不作为引用来源)
+
+- **知乎文章/回答** -- 可能提供调研方向和线索，但属于个人观点，**不直接引用**
+  - 使用方法: 看到有价值的线索后，顺着线索寻找一手信源 (年报、研报、官方数据)
+
+### 3.4 不可用信源黑名单 (严格不引用)
+
+以下来源**严格禁止**在报告中使用:
+
+1. 百度百科 -- 内容缺乏客观审核机制
+2. 搜狗百科、360百科 -- 同百度百科
+3. 百度百家号等无明确来源的自媒体
+4. 微博、X (Twitter) 等社交媒体
+5. 无日期、无作者、无引用来源的网络文章
+6. 个人博客/论坛中未经证实的用户评论
+
+> **黑名单可动态扩展**: 在 User 交互过程中，如果 User 指明某些来源不可信，则加入黑名单。
+
+> **信源底线**: 报告中每一处数据引用，都必须来自**有明确发布主体和审核机制**的来源。
+
+### 3.5 搜索执行策略
+
+1. **先宽后窄**: 先搜行业全景概览，再针对特定企业/数据点精确搜索
+2. **多角度交叉**: 同一数据点尝试 2-3 种不同搜索词，对比结果
+3. **来源标注**: 每条数据必须标注来源类型 (年报/券商/政府/媒体/行业报告)
+4. **付费墙处理**: 部分研报仅有摘要公开，摘取可用数据并在报告中注明"基于公开摘要"
+5. **缺口识别**: 标记信息不足的子课题，执行补充搜索
+6. **迭代深化**: 基于已收集信息，识别需要深挖的方向并执行第二轮搜索
+
+### 3.6 数据质量红线 (严禁触碰)
+
+1. **禁止大模型杜撰数据** -- 所有数据必须来自实际搜索结果
+2. **大模型可以自己测算** (像人类顾问那样基于已有数据进行推算)，但**必须明确标注**:
+   - 推算所用的基础数据来源
+   - 完整的计算逻辑和过程
+   - 标注为"模型测算"而非直接引用
+3. **每条数据必须可追溯** -- 有 URL、有来源机构、有访问日期
+
+### 3.7 搜索词工程 (针对不同信源类型)
+
+**目标: 上市公司财务数据**
+```
+[公司名] 202X 年 年度报告 营业收入 净利润
+[公司名] 年报 主营业务 分产品 收入
+[行业] 上市公司 202X 年报 对比
+```
+
+**目标: 券商深度研报**
+```
+[行业] 深度研究 2025 券商 报告
+[行业] 行业专题报告 市场规模 竞争格局
+[公司] 深度报告 估值 202X
+```
+
+**目标: 市场规模数据**
+```
+[行业] 市场规模 2025 [艾媒咨询/艾瑞咨询/智研咨询]
+[行业] 市场现状 发展趋势 2026
+[行业] 行业全景图 2025
+```
+
+**目标: 竞争格局**
+```
+[行业] 竞争格局 市场集中度 CR5 2025
+[行业] 企业竞争力 排名 梯队
+[行业] 头部企业 对比 营收
+```
+
+**目标: 政策法规**
+```
+[行业] 政策 2025 国务院 [部委]
+[行业] 国家标准 监管
+```
+
+
+---
+
+## 4. Agent-report consultant 工作规范
+
+### 4.1 核心职责
+
+基于 Agent-researcher 返回的数据编写报告。报告整体遵从 IBM 五看框架 (如果 User 有特殊要求则按 User 要求调整)。
+
+### 4.2 报告篇幅
+
+- **默认**: 8,000-15,000 字
+- **快速研究**: >= 3,000 字
+- **深度研究**: >= 12,000 字
+- 如果 User 有特殊篇幅要求，按 User 要求执行
+
+### 4.3 内容质量要求
+
+1. **禁止大篇幅废话和重复无效引用** -- 每个段落要有信息增量
+2. **每个章节必须有明确的、有深度的洞察观点**，而不是泛泛而谈
+3. **报告不能是纯粹的文字**，必须根据内容决定数据展现形式:
+   - 结构化对比 -> **表格**
+   - 时间序列趋势 -> **折线图**
+   - 分类比较 -> **柱状图**
+   - 多维度交叉 -> **气泡图**
+   - 比例关系 -> **饼图/环形图**
+4. **报告的数据和观点引用需在章节末尾进行说明** (引用脚标)
+5. **必须包含执行摘要**，让读者 3 分钟内把握核心结论
+6. **禁止使用 pandoc 等机械格式转换工具生成 .docx**。必须使用 python-docx 等可编程库，确保:
+   - 表格有完整可见边框（深色表头白字 + 斑马纹交替行）
+   - 图表以图片形式嵌入（matplotlib 生成 PNG → add_picture）
+   - 引用脚标以 superscript 渲染
+   - 格式、间距、对齐精确控制
+
+### 4.3a 可视化决策速查表（输出前对照）
+
+| 你写了什么 | 你必须用什么呈现 | 实现方式 |
+|-----------|----------------|---------|
+| 数据随时间变化的趋势（如"AI 预算占比从 0%升到 9.1%"） | **柱状图 或 折线图** | matplotlib 生成 PNG → python-docx add_picture |
+| 多层级结构关系（如价值链、技术栈） | **层次架构图** | matplotlib FancyBboxPatch 绘制 → 嵌入 |
+| 分类对比数据（如厂商 A vs B vs C） | **带边框格式化表格** | python-docx add_table + tblBorders |
+| 分阶段行动路径（如短期/中期/长期） | **结构化时间轴表格** | python-docx 表格，每行=一个阶段 |
+| 比例分布（如市场份额） | **饼图 或 堆叠柱状图** | matplotlib 生成 → 嵌入 |
+| 多维度关联（如采用度 vs 影响力） | **散点气泡图** | matplotlib 生成 → 嵌入 |
+| 纯观点陈述/分析 | **文字段落** | 这就是用文字的时候 |
+
+### 4.4 报告结构模板
+
+```
+# [报告标题]
+
+## 执行摘要 (Executive Summary)
+- 研究背景与目的 (2-3 句)
+- 核心结论 (3-5 个要点)
+- 关键建议 (2-3 条)
+
+## 1. 研究范围与方法
+- 研究框架说明
+- 数据来源说明
+- 研究局限性声明
+
+## 2. [核心分析章节 -- 按研究框架组织]
+
+### 2.1 [子课题 1]
+#### 关键发现
+#### 数据支撑
+#### 洞察
+
+### 2.2 [子课题 2]
+...
+
+## 3. 综合洞察
+- 跨主题交叉分析
+- 关键趋势判断
+- 风险与不确定性
+
+## 4. 结论与建议
+- 战略建议
+- 行动路径
+
+## 参考文献
+[1] 标题, 来源名称, 访问日期, URL
+[2] 标题, 来源名称, 访问日期, URL
+...
+```
+
+### 4.5 引用脚标系统
+
+#### 引用规则
+
+1. **正文引用格式**: 在引用数据或观点后加 `空格+[数字]`，如:
+   - "2025 年中国预制菜市场规模达 6173 亿元 [1]"
+   - "同比增长 27.3%，但增速较上年下降 6.5 个百分点 [2]"
+
+2. **编号规则**:
+   - 每个独立来源分配一个唯一编号，全文统一
+   - 同一来源在正文中被多次引用时，使用相同编号
+   - 编号按首次出现顺序递增 [1]、[2]、[3]...
+
+3. **参考文献清单格式** (报告末尾独立章节):
+   ```
+   ## 参考文献
+
+   [1] 标题, 来源名称/网站, 访问日期, URL
+   [2] 标题, 来源名称/网站, 访问日期, URL
+   ```
+
+#### 引用质量要求
+
+- **关键数据必须有引用**: 所有市场规模数字、增长率、企业营收等必须标注来源
+- **优先权威来源**: 政府统计、行业协会、上市公司财报、券商研报
+- **来源可验证**: 所有 URL 必须是可访问的有效链接
+
+### 4.6 看客户的核心分析逻辑
+
+对产品规划至关重要的分析维度:
+
+1. 明确列出目标客户的具体痛点和诉求，并按重要性排序
+2. 每个痛点都要回答: 我们的产品应该用什么功能/特性来满足这个需求?
+3. 区分"客户明确表达的需求"和"客户未说但实际存在的需求"
+4. B 端和 C 端客户诉求不同，必须分开分析
+
+### 4.7 看竞争的核心分析逻辑
+
+对产品定义至关重要的分析维度:
+
+1. 分析竞争对手的策略是否对准了目标客户的诉求和痛点
+2. 如果对手对准了 -> 分析他们具体的解决方案是什么，我们如何做得不同或更好
+3. 如果对手没对准 -> 识别这是我们的突破口，如何填补市场空白
+4. 竞争分析的终极产出不是"谁比谁强"，而是"市场还有哪些未被满足的需求，我们可以切入"
+
+### 4.8 核心逻辑链
+
+```
+客户痛点 -> 对手是否对准了?
+  |-- 对准了 -> 对手的方案是什么? -> 我们如何差异化?
+  |-- 没对准 -> 市场空白在哪里? -> 我们如何填补?
+  -> 产品规划和定义
+```
+
+### 4.9 输出格式
+
+报告需输出 **双格式**:
+1. **Markdown 格式** (完整报告，用于 review)
+2. **.docx 格式** (使用文件夹内的 `deep-research-template.docx`(英文版) 或 `deep-research-template-cn.docx`(中文版) 作为格式参考)
+   - 含引用上标 + 参考文献清单
+   - 含图表 (表格、柱状图、折线图等)
+   - 格式美观、专业排版
+
+
+---
+
+## 5. Agent-data reviewer 工作规范
+
+### 5.1 核心原则
+
+Agent-data reviewer **必须独立进行数据复核**，不能直接从 Agent-researcher 获取数据进行验证。
+这是一个独立的质量控制环节，目的是发现数据编造、来源错误和计算偏差。
+
+### 5.2 校验流程
+
+1. **提取**: 从初版报告中提取所有带 [n] 引用的数据点
+2. **独立搜索**: 对每个数据点进行**独立的网络检索验证** (不使用 Agent-researcher 的搜索结果)
+3. **逐一比对**: 将独立搜索结果与报告中的数据逐一比对
+4. **标记存疑**: 对无法验证、来源存疑或数字不一致的数据进行标记
+
+### 5.3 质量控制点
+
+| 控制点 | 检查内容 | 判定标准 |
+|--------|---------|---------|
+| 黑名单检查 | 数据来源是否来自黑名单 (百度百科/360百科/搜狗百科/微博/X/百家号等) | 发现黑名单来源 -> 标记为"不可信"，退回 |
+| 编造检查 | 数据是否为大模型杜撰 (而非来自实际搜索) | 无法找到独立验证来源 -> 标记为"存疑" |
+| 计算检查 | 大模型基于已有数据的测算是否合理 | 必须有计算逻辑和过程说明，否则标记为"待补充计算过程" |
+| 时效检查 | 数据年份是否过时 | 超过 3 年的数据标注"时效性需关注" |
+| URL 检查 | 引用 URL 是否可访问 | 死链 -> 标记为"链接失效" |
+
+### 5.4 校验输出
+
+```json
+{
+  "total_data_points": 45,
+  "verified": 38,
+  "flagged": 7,
+  "flags": [
+    {
+      "citation_num": 12,
+      "reported_value": "5000 亿元",
+      "issue": "独立搜索未找到匹配来源",
+      "severity": "high",
+      "action": "退回 Agent-researcher 补充搜索"
+    },
+    {
+      "citation_num": 23,
+      "reported_value": "增长 35%",
+      "issue": "来源为百度百家号，属于黑名单",
+      "severity": "critical",
+      "action": "立即移除，替换为可信来源"
+    }
+  ]
+}
+```
+
+### 5.5 决策门逻辑
+
+- **存在 critical 或 high severity 问题** -> 退回 Step 05 (Agent-researcher 补充搜索)
+- **仅有 low severity 问题** -> 标注后放行，进入 Step 08
+- **全部 verified** -> 直接进入 Step 08
+
+### 5.6 大模型测算的验证标准
+
+当报告中出现模型自行测算的数据时，必须满足:
+1. 基础数据来源明确 (引用自哪个可信来源)
+2. 计算逻辑完整记录 (公式、步骤、假设)
+3. 标注为"模型测算"而非"行业数据"
+4. 合理性可通过交叉验证大致确认
+
+
+---
+
+## 6. 数据持久化机制 (防编造)
+
+搜索过程中收集的所有有效数据必须写入 `research_data.json`。这个文件是报告和 PPT 的**唯一数据源**。
+
+### 6.1 JSON 格式
+
+```json
+[
+  {
+    "id": "D001",
+    "value": "6173 亿元",
+    "context": "2025 年中国预制菜市场规模",
+    "year": "2025",
+    "source_name": "艾媒咨询",
+    "source_type": "行业报告",
+    "url": "https://...",
+    "access_date": "2026-07-01",
+    "confidence": "high",
+    "sub_topic": "市场规模",
+    "citation_num": 1,
+    "verified_by_reviewer": true
+  }
+]
+```
+
+### 6.2 字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | 唯一标识，D001, D002... |
+| `value` | string | 数据值原文 |
+| `context` | string | 这个数据在说什么 |
+| `year` | string | 数据所属年份 |
+| `source_name` | string | 来源机构名称 |
+| `source_type` | string | 年报/券商研报/政府数据/行业报告/媒体 |
+| `url` | string | 可验证链接 |
+| `access_date` | string | 数据获取日期 |
+| `confidence` | string | high=已验证 / medium=单一来源 / low=估算 |
+| `sub_topic` | string | 所属子课题 |
+| `citation_num` | integer | 引用编号 |
+| `verified_by_reviewer` | boolean | 是否已经过 Agent-data reviewer 验证 |
+
+### 6.3 写入时机
+
+**每找到一条有效数据立即写入 JSON**，不要在最后统一补写。这确保:
+- 数据不会因上下文丢失而遗漏
+- Agent-report consultant 可以边搜边写
+- Agent-data reviewer 可以追溯数据收集过程
+
+### 6.4 数据获取函数
+
+生成脚本中统一使用以下函数获取数据，**禁止在脚本中硬编码任何数字**:
+
+```python
+import json
+
+def load_research_data(filepath="research_data.json"):
+    with open(filepath, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def get_data(data_id, filepath="research_data.json"):
+    # 通过 ID 获取数据点
+    data = load_research_data(filepath)
+    for item in data:
+        if item["id"] == data_id:
+            return item
+    raise ValueError(f"Data ID {data_id} not found")
+
+def get_data_by_topic(sub_topic, filepath="research_data.json"):
+    # 按子课题获取所有数据点
+    data = load_research_data(filepath)
+    return [item for item in data if item["sub_topic"] == sub_topic]
+
+def get_citations(filepath="research_data.json"):
+    # 获取排序后的引用列表
+    data = load_research_data(filepath)
+    cited = [item for item in data if item.get("citation_num")]
+    return sorted(cited, key=lambda x: x["citation_num"])
+```
+
+---
+
+## 7. PPT 生成规范
+
+### 7.1 从报告到 PPT: 观点提炼
+
+报告完成后不直接翻译为 PPT。必须先执行**观点提炼**:
+
+1. 将报告章节映射为幻灯片规格
+2. 每页只讲**一个观点**
+3. 标题必须是**完整观点句**，不能是名词短语
+4. 每页不超过 3 个支撑数据，多的放附录
+5. 每个数据从 `research_data.json` 的 ID 引用
+
+#### 幻灯片规格表 (slides_spec) 示例
+
+```
+第 3 页:
+  观点: "2025 年预制菜市场增速放缓，行业进入存量竞争阶段"
+  页面类型: 数据卡片组
+  支撑数据 ID: [D001, D003, D005]
+  数据来自: research_data.json
+```
+
+#### 页面类型参考
+
+| 类型 | 适用场景 |
+|------|---------|
+| 封面 | 报告标题 + 副标题 |
+| 章节页 | 章节分隔过渡 |
+| 观点页 (核心) | 一个观点句 + 2-3 个支撑数据 + 逻辑箭头 |
+| 数据卡片页 | 并排数据卡，每卡一个关键数字 + 标签 |
+| 两栏对比 | 左/右分栏对比两个维度 |
+| 时间轴 | 关键时间节点 + 事件 |
+| 图表页 | 嵌入表格/柱状图/折线图/气泡图 |
+
+### 7.2 PPT 生成步骤
+
+1. 用户 review 并确认报告内容
+2. Agent-report consultant 执行观点提炼，输出 slides_spec.json
+3. 用户确认 slides_spec 后，执行生成脚本
+4. 生成脚本从 research_data.json 获取数据，**不硬编码任何数字**
+5. 输出 .pptx 文件
+
+### 7.3 AUTO_SHAPE 构建规范
+
+生成的 .pptx 文件必须使用 AUTO_SHAPE 精确构建，**不依赖模板占位符**。
+
+#### 布局常量
+
+```
+幻灯片尺寸: 12192000 x 6858000 Emu (16:9)
+左边距: Inches(0.5)
+右边距: Inches(0.5)
+内容区起始高度: Inches(1.1)
+内容区高度: Inches(5.7)
+标题栏高度: Inches(1.0)
+```
+
+#### 辅助函数模板
+
+```python
+from pptx.util import Inches, Pt as PptPt, Emu
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
+from pptx.enum.shapes import MSO_SHAPE
+
+# Layout constants
+ML = Inches(0.5)
+MR = Inches(0.5)
+SLIDE_W = 12192000
+SLIDE_H = 6858000
+CONTENT_Y = Inches(1.1)
+CONTENT_H = Inches(5.7)
+CW = SLIDE_W - int(ML) - int(MR)
+TITLE_BAR_H = Inches(1.0)
+
+# Colors
+C_DARK  = RGBColor(0x01, 0x21, 0x69)
+C_WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+C_BLACK = RGBColor(0x33, 0x33, 0x33)
+C_GRAY  = RGBColor(0x53, 0x56, 0x5A)
+C_LGRAY = RGBColor(0xD0, 0xD0, 0xCE)
+C_ACCENT = RGBColor(0x00, 0xA3, 0xE0)
+
+def add_title_bar(slide, text):
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, SLIDE_W, TITLE_BAR_H)
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = C_DARK
+    shape.line.fill.background()
+    txBox = slide.shapes.add_textbox(ML, Inches(0.2), CW, Inches(0.6))
+    tf = txBox.text_frame; tf.word_wrap = True
+    p = tf.paragraphs[0]; p.text = text
+    p.font.size = PptPt(18); p.font.bold = True
+    p.font.color.rgb = C_WHITE; p.font.name = 'Microsoft YaHei'
+
+def add_textbox(slide, left, top, width, height, text, size=11,
+                bold=False, color=C_BLACK, align=PP_ALIGN.LEFT):
+    txBox = slide.shapes.add_textbox(Emu(left), Emu(top), Emu(width), Emu(height))
+    tf = txBox.text_frame; tf.word_wrap = True
+    p = tf.paragraphs[0]; p.text = text
+    p.font.size = PptPt(size); p.font.bold = bold
+    p.font.color.rgb = color; p.font.name = 'Microsoft YaHei'
+    p.alignment = align
+    return txBox
+
+def new_slide(prs):
+    layout = prs.slide_layouts[6]  # blank layout
+    return prs.slides.add_slide(layout)
+
+def add_data_card(slide, x, y, w, h, label, value, note=''):
+    shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h)
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor(0xF2, 0xF2, 0xF2)
+    shape.line.fill.background()
+    add_textbox(slide, x + Inches(0.15), y + Inches(0.1), w - Inches(0.3),
+                Inches(0.5), value, size=24, bold=True, color=C_DARK,
+                align=PP_ALIGN.CENTER)
+    add_textbox(slide, x + Inches(0.15), y + Inches(0.55), w - Inches(0.3),
+                Inches(0.3), label, size=10, color=C_GRAY,
+                align=PP_ALIGN.CENTER)
+```
+
+### 7.4 数据完整性校验
+
+脚本执行前必须做:
+
+```
+检查清单:
+[ ] research_data.json 是否已读取
+[ ] 所有 slides_spec 引用的数据 ID 在 JSON 中存在
+[ ] 脚本中没有任何未注释的纯数字 (除了布局常量)
+[ ] 每个数据卡片/文本框的值来源于 get_data() 调用
+```
+
+---
+
+## 8. 质量标准
+
+### 8.1 必须满足 (MUST)
+
+1. 每项关键数据必须标注来源引用脚标 [n]
+2. 同一数据点需至少 2 个独立来源交叉验证
+3. 对数据可信度做分级标注 (high / medium / low)
+4. 明确标识"待验证的假设"与"已验证的事实"
+5. 研究过程中所有数据写入 `research_data.json`，后续脚本从此文件读取
+6. **生成脚本中不得硬编码任何数字**。所有数据值必须以 `get_data("D001")` 形式从 JSON 获取
+7. 报告字数: 深度研究 >= 12,000 字; 标准研究 8,000-15,000 字; 快速研究 >= 3,000 字
+8. 包含执行摘要，让读者 3 分钟内把握核心结论
+9. **默认输出 .docx + .pptx 双格式**，含引用脚标和参考文献清单
+10. PPT 每页标题必须是观点句 (完整句子)，不是名词短语
+11. 报告必须包含图表 (表格/柱状图/折线图/气泡图至少一种)
+12. Agent-data reviewer 必须独立校验所有数据，不能复用 Agent-researcher 的搜索结果
+
+### 8.2 质量检查清单 (Agent-manager Step 08 使用)
+
+```
+版面检查:
+[ ] 格式是否美观、是否符合模板要求
+[ ] 是否有明显的格式错误 (重叠、裁剪、对齐问题)
+[ ] 图表是否清晰可读
+
+观点复核 (以 20 年经验管理咨询顾问视角):
+[ ] 每个章节是否有明确、有深度的洞察
+[ ] 观点是否有数据支撑
+[ ] 是否存在泛泛而谈、正确的废话
+
+一致性检查:
+[ ] 前后数据是否一致 (同一指标在不同章节数值相同)
+[ ] 观点是否前后矛盾
+[ ] 引用编号是否与参考文献一一对应
+
+逻辑检查:
+[ ] 报告逻辑线是否清晰 (问题 -> 分析 -> 洞察 -> 建议)
+[ ] 结论是否有充分的数据和分析支撑
+[ ] 建议是否具体、可落地
+
+完整性检查:
+[ ] 所有计划覆盖的子课题是否都有深入分析
+[ ] 是否存在明显的信息缺口
+[ ] 参考文献清单是否完整
+```
+
+---
+
+## 9. 研究框架库
+
+按需选择，如 User 无特殊要求，**默认使用 IBM 五看**。
+
+| 框架 | 分析维度 | 适用场景 |
+|------|---------|---------|
+| **IBM 五看** | 看宏观 (PEST)、看行业 (波特五力)、看客户、看对手、看自己 | 综合行业研究、战略规划 |
+| **PEST** | 政治、经济、社会、技术 | 宏观环境分析 |
+| **波特五力** | 供应商议价力、购买者议价力、新进入者威胁、替代品威胁、同业竞争 | 行业结构分析 |
+| **SWOT** | 优势、劣势、机会、威胁 | 企业/产品诊断 |
+| **3C 模型** | 公司 (Company)、顾客 (Customer)、竞争者 (Competitor) | 竞争定位 |
+| **波士顿矩阵** | 市场增长率 vs 相对市场份额 | 产品组合分析 |
+
+---
+
+## 10. 使用示例
+
+```
+User: 帮我研究一下中国预制菜市场，用五看方法论
+
+Agent-manager (Step 02):
+  我计划按 IBM 五看框架展开研究:
+
+  看宏观: 政策环境 (预制菜国标)、经济环境 (消费降级趋势)、社会环境 (懒人经济)
+  看行业: 市场规模、增速、竞争格局、产业链结构
+  看客户: C 端 vs B 端需求差异、购买决策因素
+  看对手: 头部企业 (味知香、安井、得利斯等) 战略布局
+  看自己: 市场机会窗口判断
+
+  在正式开始前，你想调整哪些方向？
+
+User (Step 03):
+  确认，开始研究。
+
+Agent-manager (Step 04):
+  正在分配任务:
+  - Agent-researcher x2: 分别搜索宏观+行业数据 和 客户+竞争数据
+  - Agent-report consultant: 等待数据完成后开始撰写
+  - Agent-data reviewer: 等待初版报告完成后开始校验
+
+Agent-researcher (Step 05):
+  (执行网络检索，数据写入 research_data.json)
+  已收集 45 条数据点，其中 high confidence 32 条，medium 10 条，low 3 条
+
+Agent-report consultant (Step 06):
+  (整合数据，撰写报告)
+  初版报告已完成，12,500 字，含 5 个表格、3 个柱状图、引用来源 28 个
+
+Agent-data reviewer (Step 07):
+  (独立校验数据)
+  校验完成: 38 条验证通过，5 条标记存疑已补充搜索，2 条黑名单来源已移除
+
+Agent-manager (Step 08):
+  终审通过。报告逻辑清晰，数据可靠，建议具体可落地。
+
+User (Step 09):
+  收到报告，确认满足需求。
+```
+
+---
+
+## 11. 文件结构
+
+研究项目在 workspace 目录下按项目组织:
+
+```
+workspace/
+  [项目名称]/
+    research_data.json      # 数据持久化文件 (唯一数据源)
+    report.md               # 完整报告 Markdown
+    report.docx             # 格式化 Word 报告
+    report.pptx             # PPT 演示文稿
+    slides_spec.json        # 幻灯片规格
+    review_report.json      # Agent-data reviewer 校验报告
+    generate_docx.py        # .docx 生成脚本
+    generate_pptx.py        # .pptx 生成脚本
+```
+
+---
+
+## 12. 局限性声明
+
+- 本 skill 依赖公开网络信息，无法访问付费数据库 (如 Euromonitor、Wind、IBISWorld)
+- 数据实时性依赖于搜索工具的可达范围
+- 对于高度专业化的领域 (如特定行业的技术参数)，建议人工复核
+- DuckDuckGo 搜索结果广度低于 Google，必要时可结合其他渠道补充
+- Agent-data reviewer 的独立验证同样受限于公开信息来源
+- 大模型测算结果应视为参考性估算，不可替代一手数据
+
+---
+
+## 13. 与 Gemini Deep Research 的策略差异
+
+| 维度 | Gemini Deep Research | 本 Skill |
+|------|---------------------|----------|
+| 信源筛选 | Google Search 排名算法 (30 年积累) | **主动搜索策略** + 人工优先级评估 + 黑名单过滤 |
+| 年报/券商研报 | Google 自动排名 | 通过**针对性的搜索词**定向查找 |
+| 数据验证 | 无独立验证环节 | **Agent-data reviewer 独立复核所有数据** |
+| 质量把关 | 一次性输出 | 4 个决策门，支持多轮退回修正 |
+| 付费数据 | Google 可索引到付费摘要 | 抓取公开可及的摘要和数据，注明"基于公开摘要" |
+| 优势 | 广度大，自动化程度高 | **深度强**，多角色协作，聚焦咨询场景高价值来源 |
+| 团队模拟 | 单次提交模式 | 模拟真实咨询团队 (4 角色协作 + User 参与) |
+
+---
+
+*Skill Version: 3.1 (Multi-Agent Architecture + Visualization Gate + Push Delivery)*
+*Last Updated: 2026-07-08*
