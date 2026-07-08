@@ -87,10 +87,6 @@ Automatically generated with academic-grade citation superscripts, structured se
 ![Data tables and analysis](images/sample_docx_chart.png)
 ![Bibliography and citations](images/sample_docx_bibliography.png)
 
-### .pptx Consulting Presentation
-
-Each slide title is a complete thesis statement (not a noun phrase), with data cards and source annotations as required by consulting standards. Note: the pptx output quality is currently limited and still under active development.
-
 ## Research Frameworks
 
 | Framework | Analysis Dimensions | Best For |
