@@ -1,7 +1,7 @@
 ---
 name: deep-research
 description: >
-  对标 Gemini Deep Research 的多 Agent 协作式深度研究报告自动生成工具。
+  对标 Gemini Deep Research 的多 Agent 协作式深度研究报告自动生成工具 v3.2。
   采用 Agent-manager / Agent-researcher / Agent-report consultant / Agent-data reviewer
   四角色协作架构，模拟咨询团队工作方式。适用于行业研究、市场分析、竞品调研等
   需要系统性资料收集和结构化输出的场景。支持 IBM 五看、PEST、波特五力等咨询框架。
@@ -64,7 +64,7 @@ Agent-manager (规划 + 品控 + 交付)
 
 ---
 
-## 2. 完整工作流 (10 步 + 4 个决策门)
+## 2. 完整工作流 (10 个主步骤 + 4 个决策门)
 
 ### 2.1 流程图
 
@@ -121,6 +121,9 @@ Step 09b: User 接收报告并评估是否满足需求
   +--> 回到 Step 02 (调整方向)
   |
   v
+Step 10: Agent-manager 询问用户是否清理临时文件
+  |
+  v
 [结束]
 ```
 
@@ -153,6 +156,7 @@ Step 09b: User 接收报告并评估是否满足需求
   - **报告撰写独立一个 Agent** -- Agent-report consultant 专注写作
   - **如果网络检索工作量很大，激活多个 Agent-researcher 并行搜索**
 - **产出**: 任务分配方案 + 各 Agent 的工作指令
+- **创建工作区**: Agent-manager 在执行研究前，先在 `workspace/` 下创建本次研究的子目录（以项目名称命名），所有产出文件均存放于此
 
 #### Step 05: 执行网络检索、收集数据
 - **执行者**: Agent-researcher (可并行多个)
@@ -188,9 +192,12 @@ Step 09b: User 接收报告并评估是否满足需求
 
 [ ] 检查: 是否使用 pandoc 等机械格式转换工具直接生成 .docx？
      若是 -> **禁止**。必须用 python-docx 等库精确控制格式和图表嵌入
+
+[ ] **篇幅检查: 报告总字数是否达标？**
+     若是标准研究（8,000-15,000字）或深度研究（>=12,000字）而字数不足 -> **退回扩充，直到字数达标为止**
 ```
 
-- **不通过则退回修改，通过后才能进入 Step 07**
+- **不通过则退回 Step 06（Agent-report consultant 修改），通过后才能进入 Step 07**
 
 #### Step 07: 校验报告中引用数据的真实性
 - **执行者**: Agent-data reviewer
@@ -200,7 +207,7 @@ Step 09b: User 接收报告并评估是否满足需求
 #### Step 08: 评估报告质量
 - **执行者**: Agent-manager
 - **品控维度**:
-  1. **版面检查**: 格式是否美观、是否有明显错误
+  1. **版面检查**: 格式是否美观、是否有明显错误，是否按照要求使用了template模板。**检查报告字数是否达标**（默认标准研究 8,000-15,000 字，深度研究 >= 12,000 字）
   2. **观点复核**: 以 20 年经验管理咨询顾问的视角，挑战报告中的观点，找不合理的点
   3. **一致性检查**: 报告是否存在前后矛盾
   4. **逻辑检查**: 逻辑线是否清晰、报告最终是否有明确结论
@@ -222,7 +229,19 @@ Step 09b: User 接收报告并评估是否满足需求
 - **动作**:
   1. 打开报告文件查看内容
   2. 评估报告是否覆盖所有需求、质量是否达标
-- **决策门 #4**: 不符合要求 -> 回到 Step 02 调整方向；符合要求 -> 工作流结束
+- **决策门 #4**: 不符合要求 -> 回到 Step 02 调整方向；符合要求 -> 进入 Step 10
+
+#### Step 10: 清理临时文件
+- **执行者**: Agent-manager
+- **动作**:
+  1. 告知用户已生成的报告文件路径（`workspace/[项目名称]/report.docx`）
+  2. 询问用户是否需要删除本次研究的临时中间文件（包括 `generate_docx.py`、图表 PNG、`research_data.json`、`review_report.json`、`slides_spec.json`、`report.md` 等）
+  3. **保留规则**:
+     - `.docx` 报告文件 **永久保留** 在 workspace 子目录中
+     - 除 `.docx` 外的所有临时文件，经用户确认后删除
+     - 如用户选择保留或未明确表态，则保留所有文件
+  4. 执行清理后告知用户清理结果
+- **这是 workspace 维护环节，确保每次研究不残留无用文件**
 
 
 ---
@@ -391,16 +410,17 @@ for r in search('<search_query>', 5):
 ### 4.3 内容质量要求
 
 1. **禁止大篇幅废话和重复无效引用** -- 每个段落要有信息增量
-2. **每个章节必须有明确的、有深度的洞察观点**，而不是泛泛而谈
-3. **报告不能是纯粹的文字**，必须根据内容决定数据展现形式:
+2. **如果没有user特殊要求，则按照根目录的template模板来输出docx报告**，报告输出时判断使用中文版还是英文版
+3. **每个章节必须有明确的、有深度的洞察观点**，而不是泛泛而谈
+4. **报告不能是纯粹的文字**，必须根据内容决定数据展现形式:
    - 结构化对比 -> **表格**
    - 时间序列趋势 -> **折线图**
    - 分类比较 -> **柱状图**
    - 多维度交叉 -> **气泡图**
    - 比例关系 -> **饼图/环形图**
-4. **报告的数据和观点引用需在章节末尾进行说明** (引用脚标)
-5. **必须包含执行摘要**，让读者 3 分钟内把握核心结论
-6. **禁止使用 pandoc 等机械格式转换工具生成 .docx**。必须使用 python-docx 等可编程库，确保:
+5. **报告的数据和观点引用需在章节末尾进行说明** (引用脚标)
+6. **必须包含执行摘要**，让读者 3 分钟内把握核心结论
+7. **禁止使用 pandoc 等机械格式转换工具生成 .docx**。必须使用 python-docx 等可编程库，确保:
    - 表格有完整可见边框（深色表头白字 + 斑马纹交替行）
    - 图表以图片形式嵌入（matplotlib 生成 PNG → add_picture）
    - 引用脚标以 superscript 渲染
@@ -516,11 +536,11 @@ for r in search('<search_query>', 5):
 
 报告需输出 **双格式**:
 1. **Markdown 格式** (完整报告，用于 review)
-2. **.docx 格式** (使用文件夹内的 `deep research template.docx` 模板)
+2. **.docx 格式** (使用 skill 根目录下的 template 模板文件)
+   - 语言判断逻辑：用户需求/数据为中文 → `deep-research-template-cn.docx`；英文 → `deep-research-template.docx`
    - 含引用上标 + 参考文献清单
    - 含图表 (表格、柱状图、折线图等)
    - 格式美观、专业排版
-
 
 ---
 
@@ -672,9 +692,9 @@ def get_citations(filepath="research_data.json"):
 ```
 ---
 
-## 8. 质量标准
+## 7. 质量标准
 
-### 8.1 必须满足 (MUST)
+### 7.1 必须满足 (MUST)
 
 1. 每项关键数据必须标注来源引用脚标 [n]
 2. 同一数据点需至少 2 个独立来源交叉验证
@@ -685,15 +705,16 @@ def get_citations(filepath="research_data.json"):
 7. 报告字数: 深度研究 >= 12,000 字; 标准研究 8,000-15,000 字; 快速研究 >= 3,000 字
 8. 包含执行摘要，让读者 3 分钟内把握核心结论
 9. **默认输出 .docx 格式**，含引用脚标和参考文献清单
-11. 报告必须包含图表 (表格/柱状图/折线图/气泡图至少一种)
-12. Agent-data reviewer 必须独立校验所有数据，不能复用 Agent-researcher 的搜索结果
+10. 报告必须包含图表 (表格/柱状图/折线图/气泡图至少一种)
+11. Agent-data reviewer 必须独立校验所有数据，不能复用 Agent-researcher 的搜索结果
 
-### 8.2 质量检查清单 (Agent-manager Step 08 使用)
+### 7.2 质量检查清单 (Agent-manager Step 08 使用)
 
 ```
 版面检查:
 [ ] 格式是否美观、是否符合模板要求
 [ ] 是否有明显的格式错误 (重叠、裁剪、对齐问题)
+[ ] **字数是否达标**（标准研究 8,000-15,000 字，深度研究 >= 12,000 字）
 [ ] 图表是否清晰可读
 
 观点复核 (以 20 年经验管理咨询顾问视角):
@@ -719,7 +740,7 @@ def get_citations(filepath="research_data.json"):
 
 ---
 
-## 9. 研究框架库
+## 8. 研究框架库
 
 按需选择，如 User 无特殊要求，**默认使用 IBM 五看**。
 
@@ -734,7 +755,7 @@ def get_citations(filepath="research_data.json"):
 
 ---
 
-## 10. 使用示例
+## 9. 使用示例
 
 ```
 User: 帮我研究一下中国预制菜市场，用五看方法论
@@ -776,29 +797,35 @@ Agent-manager (Step 08):
 
 User (Step 09):
   收到报告，确认满足需求。
+
+Agent-manager (Step 10):
+  报告已保存至 workspace/预制菜研究/report.docx。本次临时文件（py/PNG/json等）需要清理吗？
 ```
 
 ---
 
-## 11. 文件结构
+## 10. 文件结构
 
-研究项目在 workspace 目录下按项目组织:
+研究项目在 `workspace/` 目录下按项目组织，每次 deep research 新建一个子目录：
 
 ```
 workspace/
   [项目名称]/
-    research_data.json      # 数据持久化文件 (唯一数据源)
-    report.md               # 完整报告 Markdown
-    report.docx             # 格式化 Word 报告
-    report.docx             # 格式化 Word 报告
-    slides_spec.json        # 幻灯片规格 (为后续 PPT 输出预留)
-    review_report.json      # Agent-data reviewer 校验报告
-    generate_docx.py        # .docx 生成脚本
+    report.docx             # 格式化 Word 报告（永久保留）
+    research_data.json      # 搜索收集的数据（临时，可清理）
+    report.md               # 完整报告 Markdown（临时，可清理）
+    generate_docx.py        # .docx 生成脚本（临时，可清理）
+    review_report.json      # 数据校验报告（临时，可清理）
+    slides_spec.json        # 幻灯片规格（临时，可清理）
+    *.png                   # matplotlib 图表图片（临时，可清理）
 ```
+
+- `report.docx` 为最终交付件，**永久保留**
+- 其余文件为中间产物，报告交付后由 Step 10 询问用户是否清理
 
 ---
 
-## 12. 局限性声明
+## 11. 局限性声明
 
 - 本 skill 依赖公开网络信息，无法访问付费数据库 (如 Euromonitor、Wind、IBISWorld)
 - 数据实时性依赖于搜索工具的可达范围
@@ -809,7 +836,7 @@ workspace/
 
 ---
 
-## 13. 与 Gemini Deep Research 的策略差异
+## 12. 与 Gemini Deep Research 的策略差异
 
 | 维度 | Gemini Deep Research | 本 Skill |
 |------|---------------------|----------|
@@ -823,5 +850,5 @@ workspace/
 
 ---
 
-*Skill Version: 3.1 (Multi-Agent Architecture + Visualization Gate + Push Delivery)*
-*Last Updated: 2026-07-08*
+*Skill Version: 3.3 (Template compliance + word count gate + numbering fixes)*
+*Last Updated: 2026-07-09*
